@@ -38,7 +38,7 @@ if not bxor then
   -- Lua 5.3+ native operators. Compiled from a string because `~` is a parse
   -- error on 5.1, and a parse error is not something pcall can catch at the
   -- call site of a file that contains it.
-  local loader = load or loadstring
+  local loader = loadstring or load
   local chunk = loader("return function(a, b) return (a ~ b) & 0xFFFFFFFF end")
   if chunk then
     local ok, fn = pcall(chunk)
