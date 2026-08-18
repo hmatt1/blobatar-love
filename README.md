@@ -1,3 +1,14 @@
+
+go to the live demo and click "run"
+
+https://hmatt1.github.io/blobatar-love/
+
+.  
+.  
+.  
+.  
+
+  
 # blobatar for LÖVE
 
 A pure Lua port of [blobatar](https://github.com/Alain00/blobatar): deterministic
