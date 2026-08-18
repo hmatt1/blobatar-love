@@ -1,130 +1,143 @@
---- A demo of the port. The library itself is `blobatar/`.
----
----   love .
----
---- Hover a blobatar to wake it: the idle loops are gated on hover, because
---- ambient motion seen constantly is motion worth removing. The number and
---- letter keys switch the expression on every blobatar at once, which is the
---- view that makes the roster's separation rule visible: no two poses should be
---- confusable at this size.
-
 local blobatar = require("blobatar")
 
-local COLS, ROWS = 8, 5
-local CELL = 96
-local PAD = 12
-local MARGIN_TOP = 108
+--------------------------------------------------------------------------------
+-- 🟢 BLOBATAR LIVE DEMO
+-- Edit these variables to see the changes update live!
+--------------------------------------------------------------------------------
 
-local grid = {}
-local focus = nil
-local expr = "idle"
-local mode = "hover"
-local reduced = false
-local showSvg = false
+local SEED_NAME = "blobatar"
 
-local NAMES = {
-  "alain", "matt", "grace",
-  "linus", "margaret", "katherine", "tim", "barbara", "radia", "vint",
-  "donald", "alan", "edsger", "niklaus", "ken", "dennis", "bjarne", "guido",
-  "yukihiro", "rich", "joe", "anders", "brendan", "roberto", "waldemar",
-  "jose", "luiz", "carlos", "ana", "sofia", "yuki", "kenji", "mei", "nadia",
-  "omar", "priya", "sven", "tomas",
-}
+-- Available Expressions:
+-- "idle", "happy", "sad", "mad", "surprised", "wink", "sleepy", 
+-- "smug", "unsure", "scared", "love", "shy", "sick"
+local EXPRESSION = "idle"
 
-local function build()
-  grid = {}
-  for i = 1, COLS * ROWS do
-    local name = NAMES[(i - 1) % #NAMES + 1] .. (i > #NAMES and ("-" .. i) or "")
-    local b = blobatar.new(name, { animate = mode, reduced = reduced })
-    if expr ~= "idle" then b:setExpression(expr) end
-    grid[i] = { blob = b, name = name }
-  end
-end
+-- Animation Modes:
+-- "hover"  (animate when mouse is over)
+-- "always" (constantly animate)
+-- false    (no idle animation)
+local ANIMATION_MODE = "hover"
 
-local function cellRect(i)
-  local col = (i - 1) % COLS
-  local row = math.floor((i - 1) / COLS)
-  return PAD + col * (CELL + PAD), MARGIN_TOP + row * (CELL + PAD), CELL
+-- Set to true to disable loops and morphs, but keep poses
+local REDUCED_MOTION = false
+
+--------------------------------------------------------------------------------
+
+local b = nil
+
+local function randomize()
+    local chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+    SEED_NAME = ""
+    for i = 1, 8 do
+        local r = love.math.random(1, #chars)
+        SEED_NAME = SEED_NAME .. chars:sub(r, r)
+    end
+    buildBlobatar()
 end
 
 function love.load()
-  love.graphics.setBackgroundColor(0.05, 0.05, 0.06)
-  font = love.graphics.newFont(13)
-  small = love.graphics.newFont(11)
-  love.graphics.setFont(font)
-  build()
+    love.graphics.setBackgroundColor(0.06, 0.06, 0.07)
+    buildBlobatar()
+end
+
+function buildBlobatar()
+    -- Create the blobatar with our options
+    b = blobatar.new(SEED_NAME, { 
+        animate = ANIMATION_MODE, 
+        reduced = REDUCED_MOTION 
+    })
+    
+    -- Set the expression (if not idle)
+    if EXPRESSION ~= "idle" then 
+        b:setExpression(EXPRESSION) 
+    end
+    
+    -- Print details to the console (visible in the live editor)
+    print("\n--- Blobatar Info ---")
+    print("Seed:  " .. SEED_NAME)
+    print("Shape: " .. (b.layout.shape or "N/A"))
+    print("Body:  " .. (b.palette.head or "N/A"))
+    print("Eye:   " .. (b.palette.eye or "N/A"))
+    print("---------------------\n")
 end
 
 function love.update(dt)
-  local mx, my = love.mouse.getPosition()
-  focus = nil
-  for i, cell in ipairs(grid) do
-    local x, y, s = cellRect(i)
-    local over = cell.blob:hitTest(mx, my, x, y, s)
-    cell.blob:setHover(over)
-    if over then focus = cell end
-    cell.blob:update(dt)
-  end
+    if not b then return end
+
+    local w, h = love.graphics.getDimensions()
+    local size = math.min(w, h) * 0.6
+    local x = w / 2 - size / 2
+    local y = h / 2 - size / 2
+
+    local button_w, button_h = 140, 40
+    local button_x = w / 2 - button_w / 2
+    local button_y = y + size + 30
+
+    local mx, my = love.mouse.getPosition()
+
+    -- Hit testing for hover animations
+    local is_hovered = b:hitTest(mx, my, x, y, size)
+    b:setHover(is_hovered)
+    
+    -- Hit testing for randomize button cursor
+    local hover_btn = mx >= button_x and mx <= button_x + button_w and my >= button_y and my <= button_y + button_h
+    if hover_btn then
+        love.mouse.setCursor(love.mouse.getSystemCursor("hand"))
+    else
+        love.mouse.setCursor()
+    end
+    
+    -- Update the animation state
+    b:update(dt)
 end
 
 function love.draw()
-  love.graphics.setColor(1, 1, 1)
-  love.graphics.print("blobatar for LOVE", PAD, 12)
-  love.graphics.setFont(small)
-  love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.print(
-    "expression: " .. expr .. "   [1-9 0 q w e] cycle    [a] animate: " .. mode
-      .. "    [r] reduced motion: " .. tostring(reduced)
-      .. "    [s] svg to console", PAD, 36)
-  love.graphics.print(
-    focus and (focus.name .. "   " .. focus.blob.layout.shape
-               .. "   body " .. focus.blob.palette.head
-               .. "   eye " .. focus.blob.palette.eye)
-          or "hover a blobatar", PAD, 56)
-  love.graphics.setFont(font)
+    if not b then return end
 
-  for i, cell in ipairs(grid) do
-    local x, y, s = cellRect(i)
-    cell.blob:draw(x, y, s)
-  end
+    local w, h = love.graphics.getDimensions()
+    local size = math.min(w, h) * 0.6
+    local x = w / 2 - size / 2
+    local y = h / 2 - size / 2
 
-  love.graphics.setFont(small)
-  love.graphics.setColor(0.4, 0.4, 0.45)
-  love.graphics.print(
-    "the same names render the same blobatars as the JavaScript library. "
-      .. "test/parity.lua is what says so",
-    PAD, love.graphics.getHeight() - 22)
-  love.graphics.setFont(font)
+    local button_w, button_h = 140, 40
+    local button_x = w / 2 - button_w / 2
+    local button_y = y + size + 30
 
-  if focus then
-    local x = love.graphics.getWidth() - 110
-    love.graphics.setColor(0.1, 0.1, 0.12)
-    love.graphics.rectangle("fill", x - 12, 4, 116, 100, 8)
-    focus.blob:draw(x - 4, 8, 96)
-  end
+    -- Draw the blobatar
+    love.graphics.setColor(1, 1, 1)
+    b:draw(x, y, size)
+    
+    -- Draw the randomize button
+    local mx, my = love.mouse.getPosition()
+    local hover_btn = mx >= button_x and mx <= button_x + button_w and my >= button_y and my <= button_y + button_h
+    
+    if hover_btn then
+        love.graphics.setColor(1, 1, 1, 0.2)
+    else
+        love.graphics.setColor(1, 1, 1, 0.1)
+    end
+    love.graphics.rectangle("fill", button_x, button_y, button_w, button_h, 8)
+    
+    love.graphics.setColor(0.9, 0.9, 0.9)
+    love.graphics.printf("Randomize", button_x, button_y + 13, button_w, "center")
+
+    -- Draw a helpful hint
+    love.graphics.setColor(0.6, 0.6, 0.6)
+    love.graphics.printf("Edit the constants at the top of main.lua to change the blobatar!", 0, h - 50, w, "center")
 end
 
-local ORDER = blobatar.expression.names
+function love.mousepressed(mx, my, button)
+    if button == 1 then
+        local w, h = love.graphics.getDimensions()
+        local size = math.min(w, h) * 0.6
+        local y = h / 2 - size / 2
 
-function love.keypressed(key)
-  local keys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "q", "w", "e" }
-  for i, k in ipairs(keys) do
-    if key == k and ORDER[i] then
-      expr = ORDER[i]
-      for _, cell in ipairs(grid) do cell.blob:setExpression(expr) end
-      return
+        local button_w, button_h = 140, 40
+        local button_x = w / 2 - button_w / 2
+        local button_y = y + size + 30
+
+        if mx >= button_x and mx <= button_x + button_w and my >= button_y and my <= button_y + button_h then
+            randomize()
+        end
     end
-  end
-
-  if key == "a" then
-    mode = mode == "hover" and "always" or "hover"
-    build()
-  elseif key == "r" then
-    reduced = not reduced
-    build()
-  elseif key == "s" and focus then
-    print(blobatar.svg(focus.name, { size = 96 }))
-  elseif key == "escape" then
-    love.event.quit()
-  end
 end
